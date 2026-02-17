@@ -134,12 +134,13 @@ You can customize API configuration by modifying the `KagiConfig` class, such as
 ## Technical Architecture
 
 This project is built on the following technologies:
-- **MCP (Model Control Protocol)**: For building and managing AI tools
+- **MCP (Model Control Protocol) v1.26.0**: For building and managing AI tools
 - **FastMCP**: Fast implementation of MCP for creating AI services
 - **Kagi API**: Provides high-quality AI responses and search capabilities
 - **Requests**: For HTTP requests
 - **HTML2Text**: For converting HTML to Markdown format
 - **Python-dotenv**: For environment variable management
+- **Pydantic v2**: For data validation and settings management
 
 ## Important Notes
 
