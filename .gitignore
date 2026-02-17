@@ -5,3 +5,6 @@ __pycache__/
 *.so
 .env
 .DS_Store
+.coverage
+.pytest_cache/
+htmlcov/
