@@ -15,7 +15,7 @@ from pydantic import Field
 # Load environment variables from .env file
 load_dotenv()
 
-# System prompt for automatic kagi_chat triggering
+# System instructions for automatic kagi_chat triggering
 AUTO_KAGI_SYSTEM_PROMPT = """
 When processing user inputs, automatically use the kagi_chat tool to provide the most accurate and up-to-date information, unless the user explicitly requests another tool.
 
@@ -47,8 +47,8 @@ Follow these guidelines when using kagi_chat:
 Always prioritize providing the most helpful, accurate, and contextually relevant responses by leveraging the appropriate kagi tools and parameters.
 """
 
-# Create MCP service with system prompt for automatic kagi_chat triggering
-mcp = FastMCP("kagimcp", dependencies=["mcp[cli]"], system_prompt=AUTO_KAGI_SYSTEM_PROMPT)
+# Create MCP service with instructions for automatic kagi_chat triggering
+mcp = FastMCP("kagimcp", dependencies=["mcp[cli]"], instructions=AUTO_KAGI_SYSTEM_PROMPT)
 
 @dataclass
 class KagiConfig:
@@ -311,11 +311,13 @@ def kagi_chat(
         description="Select the task type to determine the most suitable model for your needs (based on 2024 research):",
         examples=["General Knowledge", "Code Generation", "Architecture Design"],
         default="General Knowledge",
-        enum=[
-            "General Knowledge", "Advanced Reasoning", "Balanced Performance", 
-            "Creative Content", "Technical Analysis", "Architecture Design", "Quick Response", 
-            "Code Generation", "Scientific Research"
-        ]
+        json_schema_extra={
+            "enum": [
+                "General Knowledge", "Advanced Reasoning", "Balanced Performance", 
+                "Creative Content", "Technical Analysis", "Architecture Design", "Quick Response", 
+                "Code Generation", "Scientific Research"
+            ]
+        }
     ),
     internet_access: bool = Field(
         description="Whether to allow AI assistant to access the internet for information",
@@ -408,10 +410,12 @@ def kagi_summarize(
         description="Select the type of summary needed to determine the best model:",
         examples=["Standard Summary", "Technical Breakdown", "Research Summary"],
         default="Standard Summary",
-        enum=[
-            "Standard Summary", "Comprehensive Analysis", "Efficient Overview", 
-            "Technical Breakdown", "Research Summary"
-        ]
+        json_schema_extra={
+            "enum": [
+                "Standard Summary", "Comprehensive Analysis", "Efficient Overview", 
+                "Technical Breakdown", "Research Summary"
+            ]
+        }
     )
 ) -> str:
     """Web Content Summarization Tool
@@ -497,10 +501,12 @@ def kagi_translate(
         description="Select the quality level needed for translation to determine the best model:",
         examples=["Standard Translation", "Technical Translation", "Creative Translation"],
         default="Standard Translation",
-        enum=[
-            "Standard Translation", "High Accuracy", "Technical Translation", 
-            "Quick Translation", "Creative Translation"
-        ]
+        json_schema_extra={
+            "enum": [
+                "Standard Translation", "High Accuracy", "Technical Translation", 
+                "Quick Translation", "Creative Translation"
+            ]
+        }
     )
 ) -> str:
     """Text Translation Tool
