@@ -35,32 +35,37 @@ High-quality text translation tool:
 
 ## Intelligent Model Selection
 
-The system automatically selects the most appropriate AI model based on the task type:
+The system uses Kagi's AI models, automatically selecting the most appropriate model based on the task type:
+
+### Available Models
+- **ki_quick**: Fast, direct answers (<5 seconds) - ideal for quick facts and general queries
+- **ki_research**: Advanced deep research (>30 seconds) - best for complex analysis and detailed responses
+- **ki_deep_research**: Experimental research engine - for specialized scientific research (higher cost)
 
 ### Conversation Model Selection
-- **General Knowledge**: Optimized for general questions (claude-3-7-sonnet)
-- **Advanced Reasoning**: For complex reasoning problems (o3)
-- **Balanced Performance**: Provides balance between speed and quality (claude-3-7-sonnet)
-- **Creative Content**: For creative content generation (gemini-2-5-pro)
-- **Technical Analysis**: For technical analysis questions (o3)
-- **Architecture Design**: For system architecture discussions (o3)
-- **Quick Response**: For quick factual questions (o4-mini)
-- **Code Generation**: For programming and code-related questions (gemini-2-5-pro)
-- **Scientific Research**: For scientific research questions (gemini-2-5-pro)
+- **General Knowledge**: Quick model for everyday queries and factual information
+- **Advanced Reasoning**: Research model for in-depth analysis and complex problem-solving
+- **Balanced Performance**: Quick model for a good balance of speed and quality
+- **Creative Content**: Research model for creative writing and diverse content generation
+- **Technical Analysis**: Research model for precise technical understanding
+- **Architecture Design**: Research model for system architecture analysis
+- **Quick Response**: Quick model for fast, efficient responses
+- **Code Generation**: Research model for robust code generation and debugging
+- **Scientific Research**: Deep Research model for specialized domain exploration
 
 ### Summary Model Selection
-- **Standard Summary**: Provides balanced and detailed content summary (claude-3-7-sonnet)
-- **Comprehensive Analysis**: Delivers in-depth analysis and insights (gemini-2-5-pro)
-- **Efficient Overview**: Quickly provides a concise overview of key points (o4-mini)
-- **Technical Breakdown**: Analyzes technical content in detail (o3)
-- **Research Summary**: Professionally summarizes academic or scientific content (gemini-2-5-pro)
+- **Standard Summary**: Quick model for balanced and detailed content summaries
+- **Comprehensive Analysis**: Research model for in-depth analysis and insights
+- **Efficient Overview**: Quick model for concise overview of key points
+- **Technical Breakdown**: Research model for detailed technical content analysis
+- **Research Summary**: Deep Research model for academic or scientific content
 
 ### Translation Model Selection
-- **Standard Translation**: Provides high-quality translation for general text (claude-3-7-sonnet)
-- **High Accuracy**: Delivers precise translation for formal documents (gemini-2-5-pro)
-- **Technical Translation**: Accurate translation of professional or technical content (o3)
-- **Quick Translation**: Fast translation for simple content (o4-mini)
-- **Creative Translation**: Preserves style, tone, and creative elements of the original text (gemini-2-5-pro)
+- **Standard Translation**: Quick model for high-quality translation of general text
+- **High Accuracy**: Research model for precise translation with nuanced understanding
+- **Technical Translation**: Research model for accurate translation of professional content
+- **Quick Translation**: Quick model for fast translation of simple content
+- **Creative Translation**: Research model to preserve style and creative elements
 
 ## Installation and Setup
 
