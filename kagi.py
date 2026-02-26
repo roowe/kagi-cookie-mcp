@@ -17,7 +17,7 @@ load_dotenv()
 
 # System instructions for automatic kagi_chat triggering
 AUTO_KAGI_SYSTEM_PROMPT = """
-When processing user inputs, automatically use the kagi_chat tool to provide the most accurate and up-to-date information, unless the user explicitly requests another tool.
+When processing user inputs, automatically use the kagi_chat tool to provide the most accurate and up-to-date information.
 
 Follow these guidelines when using kagi_chat:
 
@@ -38,11 +38,6 @@ Follow these guidelines when using kagi_chat:
 3. Internet Access:
    - By default, enable internet_access to ensure the most current information
    - Only disable internet access if the user explicitly requests offline processing
-
-4. Special Cases:
-   - If the user input starts with "/summarize", use the kagi_summarize tool instead
-   - If the user input starts with "/translate", use the kagi_translate tool instead
-   - For all other inputs, default to using kagi_chat
 
 Always prioritize providing the most helpful, accurate, and contextually relevant responses by leveraging the appropriate kagi tools and parameters.
 """
@@ -405,181 +400,7 @@ def kagi_chat(
     return "Request failed. Please check your network connection or KAGI_COOKIE environment variable."
 
 
-@mcp.tool()
-def kagi_summarize(
-    url: str = Field(
-        description="URL of the webpage to summarize, Kagi AI Assistant will analyze and summarize the content",
-        examples=[
-            "https://www.example.com/article",
-            "https://en.wikipedia.org/wiki/Artificial_intelligence"
-        ]
-    ),
-    summary_type: str = Field(
-        description="Select the type of summary needed to determine the best model:",
-        examples=["Standard Summary", "Technical Breakdown", "Research Summary"],
-        default="Standard Summary",
-        json_schema_extra={
-            "enum": [
-                "Standard Summary", "Comprehensive Analysis", "Efficient Overview", 
-                "Technical Breakdown", "Research Summary"
-            ]
-        }
-    )
-) -> str:
-    """Web Content Summarization Tool
-    
-    Main uses:
-    - Quickly summarize main content of long articles
-    - Extract key information from webpages
-    - Get main points and conclusions from articles
-    - Save reading time
-    - Analyze technical documentation and open source projects
-    - Extract key findings from papers and research reports
-    """
-    global _KAGI_INSTANCE
-    
-    # Summary descriptions for reference
-    summary_descriptions = {
-        "Standard Summary": "Uses Quick model for balanced and detailed content summaries. Ideal for general articles and web pages.",
-        "Comprehensive Analysis": "Uses Research model for in-depth analysis and insights from complex documents.",
-        "Efficient Overview": "Uses Quick model to quickly provide a concise overview of key points. Best for short content.",
-        "Technical Breakdown": "Uses Research model for detailed analysis of technical content.",
-        "Research Summary": "Uses Deep Research model for professionally summarizing academic or scientific content."
-    }
-
-    # Map summary_type to actual model based on summarization strengths
-    # New Kagi models: ki_quick, ki_research, ki_deep_research
-    model_mapping = {
-        "Standard Summary": "ki_quick",            # Fast, balanced summaries
-        "Comprehensive Analysis": "ki_research",   # In-depth analysis
-        "Efficient Overview": "ki_quick",          # Fast overview
-        "Technical Breakdown": "ki_research",      # Technical needs research
-        "Research Summary": "ki_deep_research"     # Deep research for academic content
-    }
-    
-    # Get the actual model from the mapping
-    model = model_mapping.get(summary_type, "ki_quick")
-    
-    # Create configuration object
-    config = KagiConfig(
-        model=model,
-        internet_access=True  # Internet access must be enabled for webpage summarization
-    )
-    
-    # If instance doesn't exist or model settings changed, recreate instance
-    if (_KAGI_INSTANCE is None or _KAGI_INSTANCE.config.model != model):
-        _KAGI_INSTANCE = KagiAPI(config)
-    
-    kagi = _KAGI_INSTANCE
-    
-    # Webpage summarization requires a new conversation
-    kagi.thread_id = None
-    
-    # Build prompt
-    prompt = f"""Please analyze and summarize the content of this webpage: {url}
-    
-Please include:
-1. Overview of main content
-2. Key information and points
-3. Main arguments or conclusions
-4. If technical content, extract key technical details and usage methods
-5. If research content, extract main findings and methodology
-    
-Please present the summary in a clear, structured format."""
-    
-    result = kagi.send_request(prompt)
-    if result:
-        return result
-    return "Request failed. Please check your network connection, URL validity, or KAGI_COOKIE environment variable."
-
-
-@mcp.tool()
-def kagi_translate(
-    text: str = Field(
-        description="Text content to be translated",
-        examples=[
-            "This is a sample text that needs to be translated.",
-            "Python is a programming language that lets you work quickly and integrate systems more effectively."
-        ]
-    ),
-    target_language: str = Field(
-        description="Target language, e.g.: Chinese, English, Japanese, French, etc.",
-        examples=["Chinese", "English", "Japanese", "French", "German", "Spanish"]
-    ),
-    translation_quality: str = Field(
-        description="Select the quality level needed for translation to determine the best model:",
-        examples=["Standard Translation", "Technical Translation", "Creative Translation"],
-        default="Standard Translation",
-        json_schema_extra={
-            "enum": [
-                "Standard Translation", "High Accuracy", "Technical Translation", 
-                "Quick Translation", "Creative Translation"
-            ]
-        }
-    )
-) -> str:
-    """Text Translation Tool
-    
-    Main uses:
-    - Translate text from one language to another
-    - Maintain the original meaning and tone
-    - Suitable for various types of text, including technical documentation, literary works, etc.
-    - Support translation between multiple languages
-    """
-    global _KAGI_INSTANCE
-    
-    # Translation descriptions for reference
-    translation_descriptions = {
-        "Standard Translation": "Uses Quick model for high-quality translation of general text, preserving meaning with good flow. Ideal for everyday content.",
-        "High Accuracy": "Uses Research model for precise translation with nuanced understanding of context and subtle meanings.",
-        "Technical Translation": "Uses Research model for accurate translation of professional or technical content, preserving specialized terminology.",
-        "Quick Translation": "Uses Quick model for fast translation of simple content. Focuses on core meaning when speed is essential.",
-        "Creative Translation": "Uses Research model to preserve style, tone, and creative elements of the original text."
-    }
-
-    # Map translation_quality to actual model based on translation strengths
-    # New Kagi models: ki_quick, ki_research, ki_deep_research
-    model_mapping = {
-        "Standard Translation": "ki_quick",        # Fast, good quality translation
-        "High Accuracy": "ki_research",            # High accuracy needs research
-        "Technical Translation": "ki_research",    # Technical needs research
-        "Quick Translation": "ki_quick",           # Fast translation
-        "Creative Translation": "ki_research"      # Creative needs research
-    }
-    
-    # Get the actual model from the mapping
-    model = model_mapping.get(translation_quality, "ki_quick")
-    
-    # Create configuration object
-    config = KagiConfig(
-        model=model,
-        internet_access=True
-    )
-    
-    # If instance doesn't exist or model settings changed, recreate instance
-    if (_KAGI_INSTANCE is None or _KAGI_INSTANCE.config.model != model):
-        _KAGI_INSTANCE = KagiAPI(config)
-    
-    kagi = _KAGI_INSTANCE
-    
-    # Translation requires a new conversation
-    kagi.thread_id = None
-    
-    # Build prompt
-    prompt = f"""Please translate the following text to {target_language}, maintaining the original meaning, tone, and format:
-
-{text}
-
-Please only return the translation result, without explanation or additional content."""
-    
-    result = kagi.send_request(prompt)
-    if result:
-        return result
-    return "Request failed. Please check your network connection or KAGI_COOKIE environment variable."
-
-
 if __name__ == "__main__":
     # Start MCP service with HTTP transport
     print("Starting Kagi MCP service on http://127.0.0.1:8000")
-    print("Use /summarize or /translate commands for specific tools, all other inputs will use kagi_chat")
     mcp.run(transport="http", host="127.0.0.1", port=8000)

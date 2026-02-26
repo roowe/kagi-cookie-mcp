@@ -88,16 +88,6 @@ class TestMCPServerTools:
         # Check that kagi_chat is a callable tool
         assert callable(kagi.kagi_chat)
 
-    def test_kagi_summarize_tool_registered(self):
-        """Test that kagi_summarize tool is registered"""
-        import kagi
-        assert callable(kagi.kagi_summarize)
-
-    def test_kagi_translate_tool_registered(self):
-        """Test that kagi_translate tool is registered"""
-        import kagi
-        assert callable(kagi.kagi_translate)
-
 
 class TestServerStartup:
     """Test server startup behavior"""
