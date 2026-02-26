@@ -20,7 +20,7 @@ def kagi_config():
         url='https://kagi.com/assistant/prompt',
         user_agent='TestAgent',
         timeout=30,
-        model='claude-3-sonnet',
+        model='ki_quick',
         internet_access=True
     )
 
@@ -39,7 +39,7 @@ class TestKagiConfig:
         config = KagiConfig()
         assert config.url == 'https://kagi.com/assistant/prompt'
         assert config.timeout == 30
-        assert config.model == 'claude-3-sonnet'
+        assert config.model == 'ki_quick'
         assert config.internet_access is True
     
     def test_custom_config(self):
@@ -104,11 +104,11 @@ class TestKagiAPIRequestData:
     def test_build_request_data_new_conversation(self, kagi_api):
         """Test building request data for new conversation"""
         data = kagi_api._build_request_data('test prompt')
-        
+
         assert data['focus']['prompt'] == 'test prompt'
         assert data['focus']['thread_id'] is None
         assert 'message_id' not in data['focus']
-        assert data['profile']['model'] == 'claude-3-sonnet'
+        assert data['profile']['model'] == 'ki_quick'
         assert data['profile']['internet_access'] is True
     
     def test_build_request_data_continuing_conversation(self, kagi_api):

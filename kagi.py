@@ -54,10 +54,10 @@ mcp = FastMCP("kagimcp", dependencies=["mcp[cli]"], instructions=AUTO_KAGI_SYSTE
 class KagiConfig:
     """Kagi API Configuration"""
     url: str = 'https://kagi.com/assistant/prompt'
-    user_agent: str = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36'
+    user_agent: str = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
     timeout: int = 30
-    rtt: str = '150'
-    model: str = 'claude-3-sonnet'  # Default model
+    rtt: str = '500'
+    model: str = 'ki_quick'  # Default model: ki_quick, ki_research, ki_deep_research
     internet_access: bool = True    # Whether to allow internet access
 
 class KagiAPI:
@@ -95,7 +95,7 @@ class KagiAPI:
         return {
             'sec-ch-ua-platform': 'Windows',
             'Referer': referer,
-            'sec-ch-ua': '"Google Chrome";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
+            'sec-ch-ua': '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
             'sec-ch-ua-mobile': '?0',
             'User-Agent': self.config.user_agent,
             'Accept': 'application/vnd.kagi.stream',
@@ -135,7 +135,14 @@ class KagiAPI:
                 "internet_access": self.config.internet_access,
                 "model": self.config.model,
                 "lens_id": lens_id
-            }
+            },
+            "threads": [
+                {
+                    "tag_ids": [],
+                    "saved": False,
+                    "shared": False
+                }
+            ]
         }
 
     def extract_json(self, text: str, marker: str) -> Optional[str]:
@@ -346,32 +353,33 @@ def kagi_chat(
     
     # Model descriptions for reference
     model_descriptions = {
-        "General Knowledge": "Leverages Claude 3.7 Sonnet for its strong conversational stability, instruction following, and formatted output. Ideal for everyday queries and factual information requiring clear, structured answers.",
-        "Advanced Reasoning": "Utilizes o3 for its superior capabilities in reasoning, logical analysis, and handling nuanced problems. Best for decision-making and complex problem-solving requiring deep thought.",
-        "Balanced Performance": "Employs Claude 3.7 Sonnet to offer a good balance of reliable output and conversational quality. Suitable for general tasks where consistent and well-structured responses are needed.",
-        "Creative Content": "Powered by Gemini 2.5 Pro, excelling at creative writing, diverse content generation, and tasks requiring originality and long-context understanding.",
-        "Technical Analysis": "Uses o3 for precise technical understanding, explanations, and problem-solving. Ideal for technical documentation, error analysis, and specialized knowledge requiring logical breakdown.",
-        "Architecture Design": "Assigns o3 for its strengths in system architecture analysis and technical design. Perfect for system planning, architecture reviews, and in-depth technical explanations of structures.",
-        "Quick Response": "Relies on o4-mini for fast, efficient responses to simple questions. Delivers concise answers with minimal latency, best for quick facts and time-sensitive queries.",
-        "Code Generation": "Features Gemini 2.5 Pro for robust code generation, debugging, and software implementation tasks, leveraging its strength in handling complex programming challenges.",
-        "Scientific Research": "Uses Gemini 2.5 Pro for in-depth exploration of specialized domains and complex research tasks, benefiting from its strong analytical and long-context processing capabilities."
+        "General Knowledge": "Uses Quick model for fast, direct answers. Ideal for everyday queries and factual information.",
+        "Advanced Reasoning": "Uses Research model for in-depth analysis. Best for decision-making and complex problem-solving requiring deep thought.",
+        "Balanced Performance": "Uses Quick model for a good balance of speed and quality. Suitable for general tasks.",
+        "Creative Content": "Uses Research model for creative writing and diverse content generation.",
+        "Technical Analysis": "Uses Research model for precise technical understanding and problem-solving.",
+        "Architecture Design": "Uses Research model for system architecture analysis and technical design.",
+        "Quick Response": "Uses Quick model for fast, efficient responses (<5 seconds). Best for quick facts.",
+        "Code Generation": "Uses Research model for robust code generation and debugging tasks.",
+        "Scientific Research": "Uses Deep Research model for in-depth exploration of specialized domains."
     }
-    
-    # Map model_selection to actual model based on their strengths (based on user's latest plan)
+
+    # Map model_selection to actual model based on their strengths
+    # New Kagi models: ki_quick, ki_research, ki_deep_research
     model_mapping = {
-        "General Knowledge": "claude-3-7-sonnet",  # Strong instruction following and structured output
-        "Advanced Reasoning": "o3",                   # Preferred for reasoning and logical analysis
-        "Balanced Performance": "claude-3-7-sonnet",# Good all-around qualities from the new list
-        "Creative Content": "gemini-2-5-pro",        # Best for creative tasks
-        "Technical Analysis": "o3",                # Preferred for technical explanation and analysis
-        "Architecture Design": "o3",                # Preferred for system architecture
-        "Quick Response": "o4-mini",                 # Best for speed and lightweight tasks
-        "Code Generation": "gemini-2-5-pro",      # Strongest for code and complex tasks
-        "Scientific Research": "gemini-2-5-pro"       # Strongest for complex tasks, suitable for research
+        "General Knowledge": "ki_quick",           # Fast, direct answers
+        "Advanced Reasoning": "ki_research",       # In-depth analysis
+        "Balanced Performance": "ki_quick",        # Good balance of speed
+        "Creative Content": "ki_research",         # Creative tasks need research
+        "Technical Analysis": "ki_research",       # Technical needs research
+        "Architecture Design": "ki_research",      # Architecture needs research
+        "Quick Response": "ki_quick",              # Fast responses
+        "Code Generation": "ki_research",          # Code needs research model
+        "Scientific Research": "ki_deep_research"  # Deep research for specialized domains
     }
     
     # Get the actual model from the mapping
-    model = model_mapping.get(model_selection, "claude-3-sonnet")
+    model = model_mapping.get(model_selection, "ki_quick")
     
     # Create configuration object
     config = KagiConfig(
@@ -432,24 +440,25 @@ def kagi_summarize(
     
     # Summary descriptions for reference
     summary_descriptions = {
-        "Standard Summary": "Utilizes Claude 3.7 Sonnet for balanced and detailed content summaries, leveraging its strong instruction following and structured output capabilities. Ideal for general articles and web pages.",
-        "Comprehensive Analysis": "Powered by Gemini 2.5 Pro for in-depth analysis and insights from complex and long documents, utilizing its superior contextual understanding and ability to handle extensive information.",
-        "Efficient Overview": "Relies on o4-mini to quickly provide a concise overview of key points, focusing on essential information for rapid understanding. Best for short content when time is limited.",
-        "Technical Breakdown": "Assigns o3 for detailed analysis of technical content, extracting specialized information and implementation details by leveraging its strengths in reasoning and technical explanation.",
-        "Research Summary": "Employs Gemini 2.5 Pro for professionally summarizing academic or scientific content, extracting methodologies, findings, and contributions, benefiting from its comprehensive analytical power."
+        "Standard Summary": "Uses Quick model for balanced and detailed content summaries. Ideal for general articles and web pages.",
+        "Comprehensive Analysis": "Uses Research model for in-depth analysis and insights from complex documents.",
+        "Efficient Overview": "Uses Quick model to quickly provide a concise overview of key points. Best for short content.",
+        "Technical Breakdown": "Uses Research model for detailed analysis of technical content.",
+        "Research Summary": "Uses Deep Research model for professionally summarizing academic or scientific content."
     }
-    
-    # Map summary_type to actual model based on summarization strengths (user's latest plan)
+
+    # Map summary_type to actual model based on summarization strengths
+    # New Kagi models: ki_quick, ki_research, ki_deep_research
     model_mapping = {
-        "Standard Summary": "claude-3-7-sonnet",  # Strong instruction following and structured output
-        "Comprehensive Analysis": "gemini-2-5-pro", # Comprehensive strength for complex tasks
-        "Efficient Overview": "o4-mini",            # Best for speed and lightweight tasks
-        "Technical Breakdown": "o3",               # Preferred for technical explanation and reasoning
-        "Research Summary": "gemini-2-5-pro"      # Comprehensive strength for research content
+        "Standard Summary": "ki_quick",            # Fast, balanced summaries
+        "Comprehensive Analysis": "ki_research",   # In-depth analysis
+        "Efficient Overview": "ki_quick",          # Fast overview
+        "Technical Breakdown": "ki_research",      # Technical needs research
+        "Research Summary": "ki_deep_research"     # Deep research for academic content
     }
     
     # Get the actual model from the mapping
-    model = model_mapping.get(summary_type, "claude-3-sonnet")
+    model = model_mapping.get(summary_type, "ki_quick")
     
     # Create configuration object
     config = KagiConfig(
@@ -521,24 +530,25 @@ def kagi_translate(
     
     # Translation descriptions for reference
     translation_descriptions = {
-        "Standard Translation": "Leverages Claude 3.7 Sonnet for high-quality translation of general text, preserving meaning with good conversational flow and structural integrity. Ideal for everyday content.",
-        "High Accuracy": "Powered by Gemini 2.5 Pro for precise translation with nuanced understanding of context and subtle meanings, especially for complex or lengthy texts where utmost accuracy is critical.",
-        "Technical Translation": "Assigns o3 for accurate translation of professional or technical content, preserving specialized terminology and technical concepts through its strong analytical and explanatory capabilities.",
-        "Quick Translation": "Relies on o4-mini for fast translation of simple content with good efficiency. Focuses on core meaning when speed is essential.",
-        "Creative Translation": "Employs Gemini 2.5 Pro to preserve style, tone, and creative elements of the original text, adapting cultural references and maintaining the author's voice for literary or marketing content."
+        "Standard Translation": "Uses Quick model for high-quality translation of general text, preserving meaning with good flow. Ideal for everyday content.",
+        "High Accuracy": "Uses Research model for precise translation with nuanced understanding of context and subtle meanings.",
+        "Technical Translation": "Uses Research model for accurate translation of professional or technical content, preserving specialized terminology.",
+        "Quick Translation": "Uses Quick model for fast translation of simple content. Focuses on core meaning when speed is essential.",
+        "Creative Translation": "Uses Research model to preserve style, tone, and creative elements of the original text."
     }
-    
-    # Map translation_quality to actual model based on translation strengths (user's latest plan)
+
+    # Map translation_quality to actual model based on translation strengths
+    # New Kagi models: ki_quick, ki_research, ki_deep_research
     model_mapping = {
-        "Standard Translation": "claude-3-7-sonnet",# Strong instruction following and structure
-        "High Accuracy": "gemini-2-5-pro",         # Comprehensive strength for highest accuracy
-        "Technical Translation": "o3",              # Preferred for technical explanations
-        "Quick Translation": "o4-mini",               # Best for speed
-        "Creative Translation": "gemini-2-5-pro"      # Best for creative content
+        "Standard Translation": "ki_quick",        # Fast, good quality translation
+        "High Accuracy": "ki_research",            # High accuracy needs research
+        "Technical Translation": "ki_research",    # Technical needs research
+        "Quick Translation": "ki_quick",           # Fast translation
+        "Creative Translation": "ki_research"      # Creative needs research
     }
     
     # Get the actual model from the mapping
-    model = model_mapping.get(translation_quality, "claude-3-sonnet")
+    model = model_mapping.get(translation_quality, "ki_quick")
     
     # Create configuration object
     config = KagiConfig(

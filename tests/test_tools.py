@@ -81,26 +81,26 @@ class TestKagiChatTool:
     def test_kagi_chat_model_selection(self, mock_api_class, mock_env, mock_kagi_instance):
         """Test kagi_chat with different model selections"""
         test_cases = [
-            ("General Knowledge", "claude-3-7-sonnet"),
-            ("Advanced Reasoning", "o3"),
-            ("Code Generation", "gemini-2-5-pro"),
-            ("Quick Response", "o4-mini"),
-            ("Technical Analysis", "o3"),
-            ("Creative Content", "gemini-2-5-pro"),
-            ("Scientific Research", "gemini-2-5-pro"),
+            ("General Knowledge", "ki_quick"),
+            ("Advanced Reasoning", "ki_research"),
+            ("Code Generation", "ki_research"),
+            ("Quick Response", "ki_quick"),
+            ("Technical Analysis", "ki_research"),
+            ("Creative Content", "ki_research"),
+            ("Scientific Research", "ki_deep_research"),
         ]
-        
+
         for model_selection, expected_model in test_cases:
             mock_api = Mock()
             mock_api.send_request.return_value = "Response"
             mock_api.config = Mock(model=expected_model, internet_access=True)
             mock_api_class.return_value = mock_api
-            
+
             result = kagi_chat(
                 prompt="Test prompt",
                 model_selection=model_selection
             )
-            
+
             # Verify correct model was configured
             call_args = mock_api_class.call_args
             config = call_args[0][0] if call_args[0] else call_args[1]['config']
@@ -188,24 +188,24 @@ class TestKagiSummarizeTool:
     def test_kagi_summarize_summary_types(self, mock_api_class, mock_env, mock_kagi_instance):
         """Test kagi_summarize with different summary types"""
         test_cases = [
-            ("Standard Summary", "claude-3-7-sonnet"),
-            ("Comprehensive Analysis", "gemini-2-5-pro"),
-            ("Efficient Overview", "o4-mini"),
-            ("Technical Breakdown", "o3"),
-            ("Research Summary", "gemini-2-5-pro"),
+            ("Standard Summary", "ki_quick"),
+            ("Comprehensive Analysis", "ki_research"),
+            ("Efficient Overview", "ki_quick"),
+            ("Technical Breakdown", "ki_research"),
+            ("Research Summary", "ki_deep_research"),
         ]
-        
+
         for summary_type, expected_model in test_cases:
             mock_api = Mock()
             mock_api.send_request.return_value = "Summary"
             mock_api.config = Mock(model=expected_model)
             mock_api_class.return_value = mock_api
-            
+
             result = kagi_summarize(
                 url="https://example.com",
                 summary_type=summary_type
             )
-            
+
             # Verify correct model was configured
             call_args = mock_api_class.call_args
             config = call_args[0][0] if call_args[0] else call_args[1]['config']
@@ -275,25 +275,25 @@ class TestKagiTranslateTool:
     def test_kagi_translate_quality_levels(self, mock_api_class, mock_env, mock_kagi_instance):
         """Test kagi_translate with different quality levels"""
         test_cases = [
-            ("Standard Translation", "claude-3-7-sonnet"),
-            ("High Accuracy", "gemini-2-5-pro"),
-            ("Technical Translation", "o3"),
-            ("Quick Translation", "o4-mini"),
-            ("Creative Translation", "gemini-2-5-pro"),
+            ("Standard Translation", "ki_quick"),
+            ("High Accuracy", "ki_research"),
+            ("Technical Translation", "ki_research"),
+            ("Quick Translation", "ki_quick"),
+            ("Creative Translation", "ki_research"),
         ]
-        
+
         for translation_quality, expected_model in test_cases:
             mock_api = Mock()
             mock_api.send_request.return_value = "Translation"
             mock_api.config = Mock(model=expected_model)
             mock_api_class.return_value = mock_api
-            
+
             result = kagi_translate(
                 text="Test text",
                 target_language="Spanish",
                 translation_quality=translation_quality
             )
-            
+
             # Verify correct model was configured
             call_args = mock_api_class.call_args
             config = call_args[0][0] if call_args[0] else call_args[1]['config']
