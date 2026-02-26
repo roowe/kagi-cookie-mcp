@@ -569,7 +569,7 @@ Please only return the translation result, without explanation or additional con
 
 
 if __name__ == "__main__":
-    # Start MCP service with automatic kagi_chat triggering
-    print("Starting Kagi MCP service with automatic chat triggering...")
+    # Start MCP service with HTTP transport
+    print("Starting Kagi MCP service on http://127.0.0.1:8000")
     print("Use /summarize or /translate commands for specific tools, all other inputs will use kagi_chat")
-    mcp.run()
+    mcp.run(transport="http", host="127.0.0.1", port=8000)
