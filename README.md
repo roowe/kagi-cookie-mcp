@@ -1,127 +1,132 @@
-# Kagi MCP - Intelligent Search Assistant
+# Kagi Cookie MCP
 
-Kagi MCP is an intelligent assistant based on the Model Control Protocol (MCP) that integrates Kagi's AI services to provide high-quality search-driven conversations. This tool leverages multiple advanced AI models, automatically selecting the most appropriate model for different task types to ensure optimal response quality.
+这是一个基于 MCP（Model Context Protocol）的 Kagi Assistant 服务端。
 
-## Features
+项目通过浏览器 Cookie 访问 Kagi 的 `assistant/prompt` 接口，并对外提供一个 MCP 工具：
 
-### Intelligent Conversation (kagi_chat)
+- `kagi_chat`：向 Kagi Assistant 提问
 
-Search-driven intelligent assistant that can:
-- Answer almost any question with the latest, most accurate information
-- Search for technical documentation and tutorials
-- Troubleshoot common errors and issues
-- Find configuration guides for software and tools
-- Search for code examples of specific functionality
-- Get recommended development best practices
-- Stay updated on the latest developments in technology and industries
-- Summarize webpage content
-- Translate text between languages
+当前实现是一个做过简化的版本，只保留最核心的问答能力，默认使用 `ki_quick` 模型。
 
-## Intelligent Model Selection
+这样设计的主要动机，是给 Agent 提供一个简单、稳定、可直接调用的搜索助理，而不是做一层复杂的模型编排。
 
-The system uses Kagi's AI models, automatically selecting the most appropriate model based on the task type:
+- 不开放指定模型，是为了让 Agent 不必自己做模型选择；同时 Kagi 模型更新较快，额外做一层模型适配和策略维护，成本也更高。
+- 不使用 `research`，是因为它通常意味着更高成本和更长耗时；如果要稳定支持，还需要进一步处理重试、重连、续传等更复杂的请求逻辑。
 
-### Available Models
-- **ki_quick**: Fast, direct answers (<5 seconds) - ideal for quick facts and general queries
-- **ki_research**: Advanced deep research (>30 seconds) - best for complex analysis and detailed responses
-- **ki_deep_research**: Experimental research engine - for specialized scientific research (higher cost)
+## 功能说明
 
-### Model Selection
-- **General Knowledge**: Quick model for everyday queries and factual information
-- **Advanced Reasoning**: Research model for in-depth analysis and complex problem-solving
-- **Balanced Performance**: Quick model for a good balance of speed and quality
-- **Creative Content**: Research model for creative writing and diverse content generation
-- **Technical Analysis**: Research model for precise technical understanding
-- **Architecture Design**: Research model for system architecture analysis
-- **Quick Response**: Quick model for fast, efficient responses
-- **Code Generation**: Research model for robust code generation and debugging
-- **Scientific Research**: Deep Research model for specialized domain exploration
+### `kagi_chat`
 
-## Installation and Setup
+`kagi_chat` 是项目唯一暴露的 MCP 工具，主要用于：
 
-### Prerequisites
-- Python 3.8 or higher
-- Kagi account and valid Cookie
+- 向 Kagi Assistant 发送问题
+- 复用同一个会话上下文继续追问
+- 通过 `new_conversation=True` 开启新话题
 
-### Installation Steps
+当前参数：
 
-1. Clone the repository or download the source code
+- `prompt`：用户输入的问题或指令
+- `new_conversation`：是否重置当前会话，默认 `False`
 
-2. Install dependencies
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 会话行为
 
-3. Configure environment variables
-   Create a `.env` file in the project root directory and add your Kagi Cookie:
-   ```
-   KAGI_COOKIE=your_kagi_cookie_here
-   ```
+服务端会在内存中维护：
 
-   How to get your Kagi Cookie:
-   - Log in to the Kagi website (https://kagi.com)
-   - Open browser developer tools (F12)
-   - Go to the Network tab
-   - Refresh the page
-   - Find any request and look for the Cookie value in Headers
-   - Copy the entire Cookie string
+- `thread_id`
+- `message_id`
 
-## Usage
+当你继续同一话题时，会自动带上已有会话信息；当你传入 `new_conversation=True` 时，会清空这两个状态，重新开始一个新会话。
 
-### Starting the Service
+## 安装
+
+### 环境要求
+
+- Python 3.14 或更高版本
+- 一个可用的 Kagi 账号
+- 可用的 Kagi 登录 Cookie
+
+### 安装依赖
+
+推荐使用 `uv`：
+
 ```bash
-python kagi.py
+uv sync
 ```
 
-### Examples
+如果你使用 `pip`，也可以：
 
-Regular conversation:
-```
-How to process JSON data in Python?
-```
-
-Summarize a webpage:
-```
-Please summarize this webpage: https://en.wikipedia.org/wiki/Artificial_intelligence
+```bash
+pip install -r requirements.txt
 ```
 
-Translate text:
+## 配置
+
+项目通过环境变量 `KAGI_COOKIE` 读取 Cookie。
+
+你可以在项目根目录创建 `.env` 文件：
+
+```env
+KAGI_COOKIE=你的完整_cookie
 ```
-Please translate the following text to Chinese: Python is a programming language.
+
+### 如何获取 Cookie
+
+1. 登录 [https://kagi.com](https://kagi.com)
+2. 打开浏览器开发者工具
+3. 进入 Network（网络）面板
+4. 刷新页面
+5. 找到任意发往 `kagi.com` 的请求
+6. 在请求头中复制完整的 `Cookie` 字符串
+
+注意：
+
+- 这里需要的是完整 Cookie 字符串，不只是某一个字段
+- Cookie 过期后需要重新获取
+
+## 启动服务
+
+```bash
+uv run python kagi.py
 ```
 
-## Advanced Features
+如果没有设置 `KAGI_COOKIE`，服务会直接退出，不会启动。
 
-### Caching Mechanism
-The system implements a caching mechanism that can cache responses in non-session mode, improving response speed and reducing API calls.
+当前代码中，MCP 服务使用：
 
-### Session Management
-The system automatically manages session context to maintain conversation coherence. You can start a new conversation by setting `new_conversation=True`.
+- `streamable-http` 传输
+- 绑定地址：`0.0.0.0`
+- 端口：`7001`
 
-### Custom Configuration
-You can customize API configuration by modifying the `KagiConfig` class, such as timeout, user agent, etc.
+## 项目结构
 
-## Technical Architecture
+```text
+.
+├── kagi.py          # 主服务与 Kagi 客户端实现
+├── tests/           # 单元测试
+├── requirements.txt # pip 依赖
+├── pyproject.toml   # 项目配置
+└── README.md
+```
 
-This project is built on the following technologies:
-- **MCP (Model Control Protocol) v1.26.0**: For building and managing AI tools
-- **FastMCP**: Fast implementation of MCP for creating AI services
-- **Kagi API**: Provides high-quality AI responses and search capabilities
-- **Requests**: For HTTP requests
-- **HTML2Text**: For converting HTML to Markdown format
-- **Python-dotenv**: For environment variable management
-- **Pydantic v2**: For data validation and settings management
+## 实现说明
 
-## Important Notes
+当前版本有这些特征：
 
-- A valid Kagi Cookie is required to use the service
-- Cookies have a limited validity period and need to be updated after expiration
-- Please comply with Kagi's terms of use and limitations when using the API
+- 默认固定使用 `ki_quick`
+- 不包含多模型选择逻辑
+- 不包含缓存逻辑
+- 不包含 lens 参数
+- 使用 `requests` 发起普通 HTTP 请求
+- 从响应文本中提取 `thread.json` 和 `new_message.json`
 
-## Contributions and Feedback
+这意味着它更偏向“简单可用”的实现，而不是完整复刻 Kagi 前端的流式协议行为。
 
-Contributions, issue reports, and feature requests are welcome. Please submit your feedback and contributions through GitHub Issues or Pull Requests.
+## 注意事项
 
-## License
+- 本项目依赖浏览器 Cookie，本质上是非官方接入方式
+- Kagi 页面和接口行为变化后，可能需要同步调整代码
+- 请自行评估并遵守 Kagi 的使用条款
 
-[MIT License](LICENSE)
+## 许可证
+
+本项目使用 MIT License。
