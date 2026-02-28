@@ -1,7 +1,13 @@
 [project]
 name = "kagi-cookie-mcp"
 version = "0.1.0"
-description = "Add your description here"
+description = "Kagi Assistant MCP service using browser cookies"
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "mcp[cli]",
+    "requests",
+    "python-dotenv",
+    "html2text",
+    "pydantic",
+]

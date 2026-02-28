@@ -8,7 +8,7 @@
 
 当前实现是一个做过简化的版本，只保留最核心的问答能力，默认使用 `ki_quick` 模型。
 
-这样设计的主要动机，是给 Agent 提供一个简单、稳定、可直接调用的搜索助理，而不是做一层复杂的模型编排。
+这样设计的主要动机，是给 Agent 提供一个简单、稳定、可直接调用的搜索助理。
 
 - 不开放指定模型，是为了让 Agent 不必自己做模型选择；同时 Kagi 模型更新较快，额外做一层模型适配和策略维护，成本也更高。
 - 不使用 `research`，是因为它通常意味着更高成本和更长耗时；如果要稳定支持，还需要进一步处理重试、重连、续传等更复杂的请求逻辑。
@@ -53,12 +53,6 @@
 uv sync
 ```
 
-如果你使用 `pip`，也可以：
-
-```bash
-pip install -r requirements.txt
-```
-
 ## 配置
 
 项目通过环境变量 `KAGI_COOKIE` 读取 Cookie。
@@ -67,7 +61,14 @@ pip install -r requirements.txt
 
 ```env
 KAGI_COOKIE=你的完整_cookie
+KAGI_MCP_HOST=0.0.0.0
+KAGI_MCP_PORT=7001
 ```
+
+其中：
+
+- `KAGI_COOKIE` 为必填
+- `KAGI_MCP_HOST` 和 `KAGI_MCP_PORT` 为可选，用于控制 MCP 服务监听地址和端口
 
 ### 如何获取 Cookie
 
@@ -94,17 +95,17 @@ uv run python kagi.py
 当前代码中，MCP 服务使用：
 
 - `streamable-http` 传输
-- 绑定地址：`0.0.0.0`
-- 端口：`7001`
+- 默认绑定地址：`0.0.0.0`
+- 默认端口：`7001`
+- 可通过 `.env` 中的 `KAGI_MCP_HOST` / `KAGI_MCP_PORT` 覆盖
 
 ## 项目结构
 
 ```text
 .
 ├── kagi.py          # 主服务与 Kagi 客户端实现
-├── tests/           # 单元测试
-├── requirements.txt # pip 依赖
 ├── pyproject.toml   # 项目配置
+├── uv.lock          # 依赖锁文件
 └── README.md
 ```
 

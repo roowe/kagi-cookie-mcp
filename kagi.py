@@ -18,14 +18,17 @@ AUTO_KAGI_SYSTEM_PROMPT = """
 This server provides the kagi_chat tool, a search-focused AI assistant powered by Kagi Assistant.
 """
 
+MCP_HOST = os.environ.get("KAGI_MCP_HOST", "0.0.0.0")
+MCP_PORT = int(os.environ.get("KAGI_MCP_PORT", "7001"))
+
 # Create MCP service with instructions for automatic kagi_chat triggering.
 # Recent FastMCP versions configure HTTP bind settings on the server instance.
 mcp = FastMCP(
     "kagimcp",
     dependencies=["mcp[cli]"],
     instructions=AUTO_KAGI_SYSTEM_PROMPT,
-    host="0.0.0.0",
-    port=7001,
+    host=MCP_HOST,
+    port=MCP_PORT,
 )
 
 @dataclass
@@ -226,8 +229,9 @@ def kagi_chat(
 
 if __name__ == "__main__":
     if not KagiConfig().cookie:
+        print("Error: KAGI_COOKIE environment variable is not set. Please set it before running.")
         raise SystemExit("KAGI_COOKIE is not set. Service will not start.")
 
     # Start MCP service with streamable HTTP transport.
-    print("Starting Kagi MCP service on http://127.0.0.1:8000/mcp")
+    print(f"Starting Kagi MCP service on http://{MCP_HOST}:{MCP_PORT}/mcp")
     mcp.run(transport="streamable-http")
