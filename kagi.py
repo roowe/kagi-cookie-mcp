@@ -4,10 +4,8 @@ import html
 import re
 import os
 import html2text
-import time
-import hashlib
-from typing import Optional, Dict, Any, Union, Tuple
-from dataclasses import dataclass
+from typing import Optional, Dict, Any
+from dataclasses import dataclass, field
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
@@ -17,33 +15,18 @@ load_dotenv()
 
 # System instructions for automatic kagi_chat triggering
 AUTO_KAGI_SYSTEM_PROMPT = """
-When processing user inputs, automatically use the kagi_chat tool to provide the most accurate and up-to-date information.
-
-Follow these guidelines when using kagi_chat:
-
-1. Context Awareness:
-   - Remember the conversation context. If the user's question is a continuation of the previous discussion, set the new_conversation parameter to False to maintain conversation coherence.
-   - Only set new_conversation to True when starting a completely new topic unrelated to the previous conversation.
-
-2. Model Selection:
-   - For general knowledge questions: use "General Knowledge" model
-   - For programming and code-related questions: use "Code Generation" model
-   - For complex reasoning questions: use "Advanced Reasoning" model
-   - For creative content generation: use "Creative Content" model
-   - For technical analysis questions: use "Technical Analysis" model
-   - For system architecture discussions: use "Architecture Design" model
-   - For quick factual questions: use "Quick Response" model
-   - For scientific research questions: use "Scientific Research" model
-
-3. Internet Access:
-   - By default, enable internet_access to ensure the most current information
-   - Only disable internet access if the user explicitly requests offline processing
-
-Always prioritize providing the most helpful, accurate, and contextually relevant responses by leveraging the appropriate kagi tools and parameters.
+This server provides the kagi_chat tool, a search-focused AI assistant powered by Kagi Assistant.
 """
 
-# Create MCP service with instructions for automatic kagi_chat triggering
-mcp = FastMCP("kagimcp", dependencies=["mcp[cli]"], instructions=AUTO_KAGI_SYSTEM_PROMPT)
+# Create MCP service with instructions for automatic kagi_chat triggering.
+# Recent FastMCP versions configure HTTP bind settings on the server instance.
+mcp = FastMCP(
+    "kagimcp",
+    dependencies=["mcp[cli]"],
+    instructions=AUTO_KAGI_SYSTEM_PROMPT,
+    host="0.0.0.0",
+    port=7001,
+)
 
 @dataclass
 class KagiConfig:
@@ -51,27 +34,24 @@ class KagiConfig:
     url: str = 'https://kagi.com/assistant/prompt'
     user_agent: str = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
     timeout: int = 30
-    rtt: str = '500'
-    model: str = 'ki_quick'  # Default model: ki_quick, ki_research, ki_deep_research
+    rtt: str = '0'
+    model: str = 'ki_quick'
+    cookie: str = field(default_factory=lambda: os.environ.get('KAGI_COOKIE', ''))
     internet_access: bool = True    # Whether to allow internet access
 
 class KagiAPI:
-    def __init__(self, config: Optional[KagiConfig] = None):
-        """Initialize Kagi API client
-        
-        Args:
-            config: Kagi API configuration, if None, default configuration will be used
-        """
-        self.config = config or KagiConfig()
-        self.cookie = os.environ.get('KAGI_COOKIE', '')
+    def __init__(self):
+        """Initialize the Kagi API client."""
+        self.config = KagiConfig()
         self._html2text = self._init_html2text()
         self.thread_id = None
-        self.headers = self._build_headers()
-        # Create a persistent session object to reuse TCP connections for better performance
+        self.message_id = None
         self.session = requests.Session()
-        # Cache related
-        self.cache = {}
-        self.cache_ttl = 3600  # Cache TTL in seconds
+
+    def reset_conversation(self) -> None:
+        """Clear conversation state for a fresh thread."""
+        self.thread_id = None
+        self.message_id = None
 
     def _init_html2text(self) -> html2text.HTML2Text:
         """Initialize HTML2Text converter"""
@@ -96,32 +76,19 @@ class KagiAPI:
             'Accept': 'application/vnd.kagi.stream',
             'Content-Type': 'application/json',
             'rtt': self.config.rtt,
-            'Cookie': self.cookie
+            'Cookie': self.config.cookie
         }
 
-    def _build_request_data(self, prompt_text: str, lens_id: Optional[str] = None) -> Dict[str, Any]:
-        """Build request data
-        
-        Args:
-            prompt_text: Prompt text
-            lens_id: Lens ID for domain-specific search, if None, no lens will be used
-            
-        Returns:
-            Request data dictionary
-        """
-        import uuid
-        
+    def _build_request_data(self, prompt_text: str) -> Dict[str, Any]:
+        """Build the request payload."""
         focus = {
             "thread_id": self.thread_id,
             "branch_id": "00000000-0000-4000-0000-000000000000",
-            "prompt": prompt_text
+            "prompt": prompt_text,
         }
-        
-        # If it's a new conversation, no message_id is needed
-        # If continuing a conversation, generate a message_id
-        if self.thread_id:
-            focus["message_id"] = str(uuid.uuid4())
-            
+        if self.message_id:
+            focus["message_id"] = self.message_id
+
         return {
             "focus": focus,
             "profile": {
@@ -129,53 +96,36 @@ class KagiAPI:
                 "personalizations": True,
                 "internet_access": self.config.internet_access,
                 "model": self.config.model,
-                "lens_id": lens_id
-            },
-            "threads": [
-                {
-                    "tag_ids": [],
-                    "saved": False,
-                    "shared": False
-                }
-            ]
+                "lens_id": None,
+            }
         }
 
     def extract_json(self, text: str, marker: str) -> Optional[str]:
-        """Extract JSON content from text
-        
-        Args:
-            text: Source text
-            marker: JSON marker
-            
-        Returns:
-            Extracted JSON string, or None if not found
-        """
+        """Extract JSON content from text."""
         marker_pos = text.rfind(marker)
         if marker_pos == -1:
             return None
-            
-        # Only process text after the marker
+
         last_part = text[marker_pos + len(marker):].strip()
-        start = last_part.find('{')
+        start = last_part.find("{")
         if start == -1:
             return None
 
-        # Use efficient bracket matching algorithm
         count = 0
         in_string = False
         escape = False
         json_text = []
-        
-        for i, char in enumerate(last_part[start:]):
+
+        for char in last_part[start:]:
             json_text.append(char)
             if not in_string:
-                if char == '{':
+                if char == "{":
                     count += 1
-                elif char == '}':
+                elif char == "}":
                     count -= 1
                     if count == 0:
-                        return ''.join(json_text)
-            elif char == '\\' and not escape:
+                        return "".join(json_text)
+            elif char == "\\" and not escape:
                 escape = True
                 continue
             elif char == '"' and not escape:
@@ -202,94 +152,40 @@ class KagiAPI:
         
     # Pre-compile regex for better performance
     _whitespace_pattern = re.compile(r'\n\s*\n')
-    
     def _clean_whitespace(self, text: str) -> str:
         """Clean extra whitespace lines in text"""
         return self._whitespace_pattern.sub('\n\n', text).strip()
 
-    def _get_cache_key(self, prompt_text: str) -> str:
-        """Generate cache key"""
-        return hashlib.md5(prompt_text.encode('utf-8')).hexdigest()
-        
-    def _get_from_cache(self, prompt_text: str) -> Tuple[bool, Optional[str]]:
-        """Get response from cache"""
-        cache_key = self._get_cache_key(prompt_text)
-        if cache_key in self.cache:
-            timestamp, result = self.cache[cache_key]
-            # Check if cache is expired
-            if time.time() - timestamp < self.cache_ttl:
-                return True, result
-            # Cache expired, remove it
-            del self.cache[cache_key]
-        return False, None
-        
-    def _save_to_cache(self, prompt_text: str, result: str) -> None:
-        """Save response to cache"""
-        cache_key = self._get_cache_key(prompt_text)
-        self.cache[cache_key] = (time.time(), result)
-        
-        # Clean expired cache
-        current_time = time.time()
-        expired_keys = [k for k, (timestamp, _) in self.cache.items() 
-                       if current_time - timestamp > self.cache_ttl]
-        for key in expired_keys:
-            del self.cache[key]
-    
-    def send_request(self, prompt_text: str, lens_id: Optional[str] = None) -> Optional[str]:
-        """Send request to Kagi API
-        
-        Args:
-            prompt_text: Prompt text
-            lens_id: Lens ID for domain-specific search, if None, no lens will be used
-            
-        Returns:
-            API response text, or None if request failed
-        """
-        if not self.cookie:
+    def send_request(self, prompt_text: str) -> Optional[str]:
+        """Send a prompt to Kagi API."""
+        if not self.config.cookie:
             return "Error: KAGI_COOKIE environment variable not set. Please set it before running."
-            
-        # If not in session mode (thread_id is None), try to get from cache
-        if self.thread_id is None:
-            cache_hit, cached_result = self._get_from_cache(prompt_text)
-            if cache_hit:
-                return cached_result
 
         try:
-            # Rebuild headers before each request to ensure using the latest thread_id
             headers = self._build_headers()
-            
-            # Use session object to send request, can reuse TCP connections
             response = self.session.post(
                 self.config.url,
                 headers=headers,
-                json=self._build_request_data(prompt_text, lens_id),
-                timeout=self.config.timeout
+                json=self._build_request_data(prompt_text),
+                timeout=self.config.timeout,
             )
-            
             response.raise_for_status()
-            response.encoding = 'utf-8'
-            
-            # Extract thread_id for subsequent requests
-            thread_json = self.extract_json(response.text, 'thread.json:')
+            response.encoding = "utf-8"
+
+            thread_json = self.extract_json(response.text, "thread.json:")
             if thread_json:
                 thread_data = json.loads(thread_json)
-                if thread_data.get('id'):
-                    self.thread_id = thread_data['id']
-            
-            json_str = self.extract_json(response.text, 'new_message.json:')
-            if not json_str:
-                return "Failed to parse response content"
-            
-            message_data = json.loads(json_str)
-            if message_data.get('state') == 'done' and message_data.get('reply'):
-                result = self.decode_text(message_data['reply'])
-                
-                # If not in session mode, cache the result
-                if self.thread_id is None:
-                    self._save_to_cache(prompt_text, result)
-                    
-                return result
-            
+                if thread_data.get("id"):
+                    self.thread_id = thread_data["id"]
+
+            message_json = self.extract_json(response.text, "new_message.json:")
+            if message_json:
+                message_data = json.loads(message_json)
+                if message_data.get("id"):
+                    self.message_id = message_data["id"]
+                if message_data.get("state") == "done" and message_data.get("reply"):
+                    return self.decode_text(message_data["reply"])
+
             return "Failed to parse response content"
             
         except requests.exceptions.RequestException as e:
@@ -298,109 +194,40 @@ class KagiAPI:
 # Global singleton instance
 _KAGI_INSTANCE = None
 
+
+def _get_kagi_instance() -> KagiAPI:
+    """Create the singleton client lazily."""
+    global _KAGI_INSTANCE
+    if _KAGI_INSTANCE is None:
+        _KAGI_INSTANCE = KagiAPI()
+    return _KAGI_INSTANCE
+
 @mcp.tool()
 def kagi_chat(
     prompt: str = Field(
-        description="Select the task type to determine the most suitable model for your needs (based on 2024 research):",
-        examples=["General Knowledge", "Code Generation", "Architecture Design"],
-        default="General Knowledge"
+        description="The user's question or instruction to send to Kagi.",
+        examples=["What is Bun and does it have compatibility issues?", "Explain this Python traceback."]
     ),
     new_conversation: bool = Field(
         description="Whether to start a new conversation, default is False to continue current conversation",
         default=False
-    ),
-    model_selection: str = Field(
-        description="Select the task type to determine the most suitable model for your needs (based on 2024 research):",
-        examples=["General Knowledge", "Code Generation", "Architecture Design"],
-        default="General Knowledge",
-        json_schema_extra={
-            "enum": [
-                "General Knowledge", "Advanced Reasoning", "Balanced Performance", 
-                "Creative Content", "Technical Analysis", "Architecture Design", "Quick Response", 
-                "Code Generation", "Scientific Research"
-            ]
-        }
-    ),
-    internet_access: bool = Field(
-        description="Whether to allow AI assistant to access the internet for information",
-        default=True
-    ),
-    lens_id: Optional[str] = Field(
-        description="Use specific Kagi lens ID for domain-specific search, default is None",
-        default=None
     )
 ) -> str:
-    """Universal Search-Driven Intelligent Assistant
-    
-    This tool is automatically triggered for all user inputs that don't explicitly request other tools.
-    The system will maintain conversation context and select the most appropriate model based on the query type.
-    
-    Main uses:
-    - Answer Any Question: Almost any question can first be searched to get the latest, most accurate answers
-    - Technical Documentation Search: Quickly locate official documentation and tutorials
-    - Error Troubleshooting: Search for solutions to common errors
-    - Configuration Guides: Find setup instructions for software and tools
-    - Code Examples: Search for implementations of specific functionality
-    - Best Practices: Get recommended development practices
-    - Industry Trends: Stay updated on the latest developments in technology and industries
-    """
-    global _KAGI_INSTANCE
-    
-    # Model descriptions for reference
-    model_descriptions = {
-        "General Knowledge": "Uses Quick model for fast, direct answers. Ideal for everyday queries and factual information.",
-        "Advanced Reasoning": "Uses Research model for in-depth analysis. Best for decision-making and complex problem-solving requiring deep thought.",
-        "Balanced Performance": "Uses Quick model for a good balance of speed and quality. Suitable for general tasks.",
-        "Creative Content": "Uses Research model for creative writing and diverse content generation.",
-        "Technical Analysis": "Uses Research model for precise technical understanding and problem-solving.",
-        "Architecture Design": "Uses Research model for system architecture analysis and technical design.",
-        "Quick Response": "Uses Quick model for fast, efficient responses (<5 seconds). Best for quick facts.",
-        "Code Generation": "Uses Research model for robust code generation and debugging tasks.",
-        "Scientific Research": "Uses Deep Research model for in-depth exploration of specialized domains."
-    }
+    """Ask Kagi Assistant with the quick model."""
+    kagi = _get_kagi_instance()
 
-    # Map model_selection to actual model based on their strengths
-    # New Kagi models: ki_quick, ki_research, ki_deep_research
-    model_mapping = {
-        "General Knowledge": "ki_quick",           # Fast, direct answers
-        "Advanced Reasoning": "ki_research",       # In-depth analysis
-        "Balanced Performance": "ki_quick",        # Good balance of speed
-        "Creative Content": "ki_research",         # Creative tasks need research
-        "Technical Analysis": "ki_research",       # Technical needs research
-        "Architecture Design": "ki_research",      # Architecture needs research
-        "Quick Response": "ki_quick",              # Fast responses
-        "Code Generation": "ki_research",          # Code needs research model
-        "Scientific Research": "ki_deep_research"  # Deep research for specialized domains
-    }
-    
-    # Get the actual model from the mapping
-    model = model_mapping.get(model_selection, "ki_quick")
-    
-    # Create configuration object
-    config = KagiConfig(
-        model=model,
-        internet_access=internet_access
-    )
-    
-    # If instance doesn't exist or model/internet settings changed, recreate instance
-    if (_KAGI_INSTANCE is None or 
-        _KAGI_INSTANCE.config.model != model or 
-        _KAGI_INSTANCE.config.internet_access != internet_access):
-        _KAGI_INSTANCE = KagiAPI(config)
-    
-    kagi = _KAGI_INSTANCE
-    
-    # If starting new conversation, reset thread_id
     if new_conversation:
-        kagi.thread_id = None
-        
-    result = kagi.send_request(prompt, lens_id)
-    if result:
-        return result
-    return "Request failed. Please check your network connection or KAGI_COOKIE environment variable."
+        kagi.reset_conversation()
+
+    return kagi.send_request(prompt) or (
+        "Request failed. Please check your network connection or KAGI_COOKIE environment variable."
+    )
 
 
 if __name__ == "__main__":
-    # Start MCP service with HTTP transport
-    print("Starting Kagi MCP service on http://127.0.0.1:8000")
-    mcp.run(transport="http", host="127.0.0.1", port=8000)
+    if not KagiConfig().cookie:
+        raise SystemExit("KAGI_COOKIE is not set. Service will not start.")
+
+    # Start MCP service with streamable HTTP transport.
+    print("Starting Kagi MCP service on http://127.0.0.1:8000/mcp")
+    mcp.run(transport="streamable-http")
